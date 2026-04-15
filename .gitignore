@@ -20,8 +20,6 @@ dist/
 
 # cloudflare
 .wrangler/
-.worker/
-.open-next/
 
 # nix
 result

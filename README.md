@@ -2,14 +2,15 @@
 
 Brief description of what this project does and who it's for.
 
-Live: [https://project.pages.dev](https://project.pages.dev)
+> The repository homepage URL is automatically set to the Cloudflare Pages deployment URL on first deploy.
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 (App Router)
+- **Framework**: Next.js 15 (static export, no SSR)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS v4
-- **Deployment**: Cloudflare Pages via GitHub Actions
+- **Hosting**: Cloudflare Pages (static files)
+- **CI/CD**: GitHub Actions — deploys on push to `main`, preview URLs on PRs
 - **Dev Environment**: Nix (optional) + Bun
 
 ## Getting Started
@@ -17,10 +18,8 @@ Live: [https://project.pages.dev](https://project.pages.dev)
 ### With Nix (recommended)
 
 ```bash
-git clone https://github.com/wezero-studio/project-name.git
-cd project-name
-nix develop          # drops you into a shell with bun, node, treefmt, lefthook
 cp .env.example .env.local
+nix develop          # drops you into a shell with bun, node, treefmt, lefthook
 bun install
 bun run dev
 ```
@@ -30,8 +29,6 @@ bun run dev
 Ensure you have [bun](https://bun.sh) and [lefthook](https://github.com/evilmartians/lefthook) installed.
 
 ```bash
-git clone https://github.com/wezero-studio/project-name.git
-cd project-name
 cp .env.example .env.local
 bun install
 lefthook install
@@ -53,14 +50,24 @@ Copy `.env.example` to `.env.local` and fill in the values:
 | Command | Description |
 |---------|-------------|
 | `bun run dev` | Start dev server with Turbopack |
-| `bun run build` | Production build |
+| `bun run build` | Production static build (`out/` directory) |
 | `bun run lint` | Run ESLint |
 | `bun run format` | Format with treefmt (prettier + nixfmt) |
 | `bun run type-check` | TypeScript type checking |
 
 ## Deployment
 
-Deployments are automated via GitHub Actions to Cloudflare Pages. Push to `main` to deploy to production. PRs get preview deployments with a URL comment.
+Deployments are fully automated. The Cloudflare Pages project name is derived from the GitHub repository name — no manual configuration needed beyond setting two org-level secrets:
+
+- `CLOUDFLARE_API_TOKEN` — Cloudflare API token with Pages permissions
+- `CLOUDFLARE_ACCOUNT_ID` — your Cloudflare account ID
+
+On first push to `main`, the workflow will:
+1. Create the Cloudflare Pages project automatically
+2. Deploy the static build output
+3. Set the GitHub repository homepage URL to the deployment URL
+
+PRs get preview deployments with a URL comment.
 
 See the [CI/CD SOP](https://github.com/wezero-studio/sop/blob/main/ci-cd.md) for setup details.
 
@@ -71,7 +78,7 @@ src/
   app/          # Next.js App Router pages and layouts
   components/   # Reusable UI components
   lib/          # Utility functions and shared logic
-public/         # Static assets (favicon, og-image, etc.)
+public/         # Static assets (favicon, og-image, _headers)
 flake.nix       # Nix dev environment
 treefmt.nix     # treefmt config (nix-native)
 treefmt.toml    # treefmt config (non-nix fallback)

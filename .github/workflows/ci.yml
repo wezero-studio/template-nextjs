@@ -7,8 +7,11 @@ on:
     branches: [main]
 
 # Cloudflare project name is derived from the repository name automatically.
-# No need to set CLOUDFLARE_PROJECT_NAME in GitHub repo variables.
 # Required secrets: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
+# Optional secret: GH_ADMIN_TOKEN (PAT with repo admin scope, for setting homepage URL)
+
+env:
+  NEXT_TELEMETRY_DISABLED: 1
 
 jobs:
   ci:
@@ -21,7 +24,24 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
       - run: bun install --frozen-lockfile
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('src/**', 'public/**') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
+            nextjs-${{ runner.os }}-
+
       - run: bun run lint
       - run: bun run type-check
       - run: bun run build
@@ -32,7 +52,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       deployments: write
     steps:
       - uses: actions/checkout@v4
@@ -41,18 +61,28 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
       - run: bun install --frozen-lockfile
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('src/**', 'public/**') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
+            nextjs-${{ runner.os }}-
+
       - run: bun run build
 
-      - name: Create Pages project if needed
+      - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages project create ${{ github.event.repository.name }} --production-branch=main
-        continue-on-error: true
-
-      - uses: cloudflare/wrangler-action@v3
         id: deploy
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -61,13 +91,16 @@ jobs:
 
       - name: Set repository homepage to deployment URL
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
         run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::GH_ADMIN_TOKEN not set — skipping homepage update. Add a PAT with admin scope as an org secret to enable this."
+            exit 0
+          fi
           DEPLOY_URL="${{ steps.deploy.outputs.deployment-url }}"
           PAGES_URL="https://${{ github.event.repository.name }}.pages.dev"
           HOMEPAGE="${DEPLOY_URL:-$PAGES_URL}"
           gh repo edit --homepage "$HOMEPAGE"
-        continue-on-error: true
 
   deploy-preview:
     name: Deploy Preview
@@ -85,18 +118,28 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
       - run: bun install --frozen-lockfile
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('src/**', 'public/**') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
+            nextjs-${{ runner.os }}-
+
       - run: bun run build
 
-      - name: Create Pages project if needed
+      - name: Deploy preview
         uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages project create ${{ github.event.repository.name }} --production-branch=main
-        continue-on-error: true
-
-      - uses: cloudflare/wrangler-action@v3
         id: deploy
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

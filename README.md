@@ -57,15 +57,16 @@ Copy `.env.example` to `.env.local` and fill in the values:
 
 ## Deployment
 
-Deployments are fully automated. The Cloudflare Pages project name is derived from the GitHub repository name — no manual configuration needed beyond setting two org-level secrets:
+Deployments are fully automated. The Cloudflare Pages project name is derived from the GitHub repository name — no manual configuration needed beyond org-level secrets:
 
 - `CLOUDFLARE_API_TOKEN` — Cloudflare API token with Pages permissions
 - `CLOUDFLARE_ACCOUNT_ID` — your Cloudflare account ID
+- `GH_ADMIN_TOKEN` (optional) — GitHub PAT with `administration:write` scope, for auto-setting the repo homepage URL
 
 On first push to `main`, the workflow will:
 1. Create the Cloudflare Pages project automatically
 2. Deploy the static build output
-3. Set the GitHub repository homepage URL to the deployment URL
+3. Set the GitHub repository homepage URL to the deployment URL (requires `GH_ADMIN_TOKEN`)
 
 PRs get preview deployments with a URL comment.
 
